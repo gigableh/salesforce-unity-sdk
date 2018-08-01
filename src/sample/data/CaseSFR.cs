@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using Boomlagoon.JSON;
 using Salesforce;
 
-public class Case : SalesforceRecord {
+public class CaseSFR : SalesforceRecord {
 
     public const string BASE_QUERY = "SELECT Id, Subject, Status FROM Case";
 
     public string subject { get; set; }
     public string status { get; set; }
 
-    public Case() {}
+    public CaseSFR() {}
 
-    public Case(string id, string subject, string status) : base(id) {
+    public CaseSFR(string id, string subject, string status) : base(id) {
         this.subject = subject;
         this.status = status;
     }

@@ -1,7 +1,5 @@
 /*
-* Salesforce REST API wrapper for Unity 3d.
-* v2.0 by Philippe Ozil
-* https://github.com/pozil/salesforce-unity-sdk
+* Modified SalesforceClient.
 */
 using UnityEngine;
 using System;
@@ -23,11 +21,8 @@ namespace Salesforce
 
         [Header("Authentication Settings (keep those secret!)")]
         [Tooltip("Change default value when using a sandbox or restricting authentication domain")]
-        public string oAuthEndpoint = "https://login.salesforce.com/services/oauth2/token";
-        [Tooltip("Get this value from your Salesforce connected application")]
-        public string consumerKey = "";
-        [Tooltip("Get this value from your Salesforce connected application")]
-        public string consumerSecret = "";
+        public string oAuthEndpoint = "https://test.salesforce.com/services/oauth2/token";
+        public SalesforceCredentials credentials;
 
         private SalesforceConnection connection;
 
@@ -52,9 +47,11 @@ namespace Salesforce
         * @throws SalesforceAuthenticationException if authentication request fails due to invalid credentials
         * @throws SalesforceApiException if authentication request fails (possible reasons: network...)
         */
-        public IEnumerator login(string username, string password) {
+        public IEnumerator login() {
+			string passwordWithToken = credentials.getPasswordWithToken();
+			
             // Check configuration
-            assertConfigurationIsValid(username, password);
+            assertConfigurationIsValid(credentials.username, passwordWithToken);
 
             // Check if Auth Token is already set
             if (isUserLoggedIn()) {
@@ -63,10 +60,10 @@ namespace Salesforce
 
             // Configure request
             WWWForm form = new WWWForm();
-            form.AddField("username", username);
-            form.AddField("password", password);
-            form.AddField("client_secret", consumerSecret);
-            form.AddField("client_id", consumerKey);
+            form.AddField("username", credentials.username);
+            form.AddField("password", passwordWithToken);
+            form.AddField("client_secret", credentials.consumerSecret);
+            form.AddField("client_id", credentials.consumerKey);
             form.AddField("grant_type", "password");
 
             // Send request & parse response
@@ -181,6 +178,29 @@ namespace Salesforce
                     JSONObject jsonResponse = JSONObject.Parse(request.downloadHandler.text);
                     record.id = jsonResponse.GetString("id");
                     yield return record;
+                }
+            }
+        }
+
+        public IEnumerator insert(string s, string objectName) {
+            assertUserIsLoggedIn();
+
+            //JSONObject recordJson = record.toJson();
+            string url = getDataServiceUrl() + "sobjects/" + objectName;
+            Debug.Log(url);
+
+            using (UnityWebRequest request = getBaseRequest(url, "POST")) {
+                request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(s));
+                yield return request.SendWebRequest();
+                if (request.isNetworkError || request.isHttpError) {
+                    logResponseError(request);
+                    throw new SalesforceApiException("Salesforce insert error: " + request.error);
+                }
+                else {
+                    logResponseSuccess(request);
+                    //JSONObject jsonResponse = JSONObject.Parse(request.downloadHandler.text);
+                    //record.id = jsonResponse.GetString("id");
+                    //yield return record;
                 }
             }
         }
@@ -322,8 +342,9 @@ namespace Salesforce
             try {
                 // Check connected app settings
                 assertIsNotNull(oAuthEndpoint, "oAuthEndpoint");
-                assertIsNotNull(consumerSecret, "clientSecret");
-                assertIsNotNull(consumerKey, "clientId");
+                assertIsNotNull(credentials, "credentials object");
+                assertIsNotNull(credentials.consumerSecret, "clientSecret");
+                assertIsNotNull(credentials.consumerKey, "clientId");
                 // Check user settings
                 assertIsNotNull(username, "username");
                 assertIsNotNull(password, "password");
@@ -336,6 +357,12 @@ namespace Salesforce
         private void assertIsNotNull(string value, string label) {
             if (value == null || "".Equals(value)) {
                 throw new SalesforceConfigurationException("Missing value for "+ label);
+            }
+        }
+
+        private void assertIsNotNull(object obj, string label) {
+            if (obj == null) {
+                throw new SalesforceConfigurationException("Null value for "+ label);
             }
         }
 

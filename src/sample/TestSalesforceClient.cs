@@ -3,20 +3,19 @@ using System.Collections.Generic;
 using UnityEngine;
 using Salesforce;
 using Boomlagoon.JSON;
+using System;
 
 [RequireComponent(typeof(SalesforceClient))]
-public class TestSalesforceClient : MonoBehaviour {
-
-    public string salesforceUsername = "";
-    public string salesforcePassword = "";
-
-    IEnumerator Start() {
+public class TestSalesforceClient : MonoBehaviour
+{
+    IEnumerator Start()
+    {
         // Get Salesforce client component
         SalesforceClient sfdcClient = GetComponent<SalesforceClient>();
 
         // Init client & log in
         Coroutine<bool> loginRoutine = this.StartCoroutine<bool>(
-            sfdcClient.login(salesforceUsername, salesforcePassword)
+            sfdcClient.login()
         );
         yield return loginRoutine.coroutine;
         try {
@@ -32,22 +31,29 @@ public class TestSalesforceClient : MonoBehaviour {
             throw e;
         }
         catch (SalesforceApiException e) {
-            Debug.Log("Salesforce login failed");
+            Debug.Log(e.Message);
+            //Debug.Log("Salesforce login failed");
             throw e;
         }
 
+        // Test insert to Unity_Test object.
+        StartCoroutine(sfdcClient.insert(new UnityTestSFR() {
+            Events_Name__c = "Test from Unity",
+            Milliseconds__c = DateTime.UtcNow.Millisecond.ToString()
+        }));
+
         // Get some cases
-        string query = Case.BASE_QUERY + " ORDER BY Subject LIMIT 5";
-        Coroutine<List<Case>> getCasesRoutine = this.StartCoroutine<List<Case>>(
-            sfdcClient.query<Case>(query)
+        string query = CaseSFR.BASE_QUERY + " ORDER BY Subject LIMIT 5";
+        Coroutine<List<CaseSFR>> getCasesRoutine = this.StartCoroutine<List<CaseSFR>>(
+            sfdcClient.query<CaseSFR>(query)
         );
         yield return getCasesRoutine.coroutine;
-        List<Case> cases = getCasesRoutine.getValue();
+        List<CaseSFR> cases = getCasesRoutine.getValue();
         Debug.Log("Retrieved " + cases.Count + " cases");
 
         // Create sample case
-        Case caseRecord = new Case(null, "Test case", "New");
-        Coroutine<Case> insertCaseRoutine = this.StartCoroutine<Case>(
+        CaseSFR caseRecord = new CaseSFR(null, "Test case", "New");
+        Coroutine<CaseSFR> insertCaseRoutine = this.StartCoroutine<CaseSFR>(
             sfdcClient.insert(caseRecord)
         );
         yield return insertCaseRoutine.coroutine;
@@ -65,11 +71,11 @@ public class TestSalesforceClient : MonoBehaviour {
         Debug.Log("Case updated");
 
         // Delete sample case
-        Coroutine<string> deleteCaseRoutine = this.StartCoroutine<string>(
-            sfdcClient.delete(caseRecord)
-        );
-        yield return deleteCaseRoutine.coroutine;
-        deleteCaseRoutine.getValue();
-        Debug.Log("Case deleted");
+        // Coroutine<string> deleteCaseRoutine = this.StartCoroutine<string>(
+        //     sfdcClient.delete(caseRecord)
+        // );
+        // yield return deleteCaseRoutine.coroutine;
+        // deleteCaseRoutine.getValue();
+        // Debug.Log("Case deleted");
     }
 }
